@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 // Minimum 2 children, max 4. Keys bounds always one lesser.
 #define M 4
@@ -8,22 +9,22 @@ typedef void* Value;
 
 // This implementation is closer to the original Bayer description,
 // where internal nodes also point to data/records.
-typedef struct {
+typedef struct kvpair {
     Key key;
     Value val;
 } KeyValuePair;
 
-struct node;
-typedef struct node BTreeNode;
 struct node {
     int size;
     // This can be determined without this flag by checking the children 
     // arrary, but this is a better tradeoff.
     int isLeaf; 
-    BTreeNode *parent;
-    BTreeNode *children[M];
+    struct node *parent;
+    struct node *children[M];
     KeyValuePair records[M-1];
 };
+
+typedef struct node BTreeNode;
 
 Value find(BTreeNode*, Key);
 void insert(BTreeNode*, Key, Value);
@@ -31,6 +32,9 @@ void delete(BTreeNode*, Key);
 void update(BTreeNode*, Key, Value);
 void inorder(BTreeNode*);
 void splitInsert(BTreeNode*, Key, Value);
+
+void displayTree(BTreeNode*);
+void displayNode(BTreeNode*);
 // Range scans?
 
 int isFull(BTreeNode* node) {
@@ -39,6 +43,15 @@ int isFull(BTreeNode* node) {
 
 int main(int argc, char* argv[]) {
     BTreeNode root = {0};
+    int choice = -1;
+    while (choice) {
+        displayTree(&root);
+        printf("0. Exit\n");
+        printf("1. insert\n");
+        // TODO
+        printf("> ");
+        scanf("%d", &choice);
+    }
 
 }
 
@@ -49,29 +62,15 @@ Value find(BTreeNode* root, Key key) {
        if (node->isLeaf) {
         break;
        } 
-       // TODO binary search
-       // find the path to take.
-       int i = 0;
-       KeyValuePair record = node->records[i]; 
-       while (record.key < key && i <  node->size) {
-            record = node->records[++i];
-       }
-       node = node->children[i];
+       size_t idx = binarySearch(node->records, key, node->size, 0);
+       node = node->children[idx];
     }
 
-    int i = 0;
-    // TODO binary search
-    // while (node->records[i].key != key && i < node->size) i++;
-    while (i < node->size) {
-        if (node->records[i].key == key) {
-            return node->records[i].val;
-        } else {
-            i++;
-        }
-    }
-    if (i == node->size) {
+    size_t idx = binarySearch(node->records, key, node->size, 1);
+    if (idx == -1) {
         return NULL;
-    }
+    } 
+    return node->records[idx].val;
 }
 
 void insert(BTreeNode* root, Key key, Value val) {
@@ -81,14 +80,9 @@ void insert(BTreeNode* root, Key key, Value val) {
        if (node->isLeaf) {
             break;
        } 
-       // TODO binary search
        // find the path to take.
-       int i = 0;
-       KeyValuePair record = node->records[i]; 
-       while (record.key < key && i <  node->size) {
-            record = node->records[++i];
-       }
-       node = node->children[i];
+       size_t idx = binarySearch(node->records, key, node->size, 0);
+       node = node->children[idx];
     }
 
     // if the node is full, split the node during insertion
@@ -118,17 +112,18 @@ void splitInsert(BTreeNode* node, Key key, Value val) {
     const int midIdx = node->size / 2;
     Key midKey = node->records[midIdx].key;
 
+    const int daughterSize = (node->size - 1) / 2;
+    BTreeNode newRightNode = {.size = daughterSize, .isLeaf = node->isLeaf, .parent = node->parent};
+
     // Copy the second half into new node.
-    KeyValuePair rightRecords[M-1] = {0};
-    void* rightChildren[M] = {0};
+    KeyValuePair* rightRecords = newRightNode.records;
+    BTreeNode** rightChildren = newRightNode.children;
     for (int srcIdx = midIdx + 1, tarIdx = 0; srcIdx < node->size; srcIdx++, tarIdx++) {
         rightRecords[tarIdx] = node->records[srcIdx];
         rightChildren[tarIdx] = node->children[srcIdx];
     }
-    const int daughterSize = (node->size - 1) / 2;
     rightChildren[daughterSize] = node->children[node->size]; // copy the last child ptr
 
-    BTreeNode newRightNode = {daughterSize, node->isLeaf, node->parent, rightRecords, rightChildren};
 
     // push the mid point up.
     // handle the case where parent is full recursively
@@ -136,4 +131,45 @@ void splitInsert(BTreeNode* node, Key key, Value val) {
     // make two new nodes (handle leaves properly)
 
     // update the child ptrs in parent properly
+}
+
+void displayTree(BTreeNode* root) {
+    if (!root) {
+        printf("Tree isn't initialized yet");
+    }
+    
+    // TODO BFS
+    displayNode(root);
+    printf("\n");
+
+}
+
+void displayNode(BTreeNode* node) {
+    printf("|");
+    for (int i = 0; i < node->size; i++) {
+        printf(" %d", node->records[i].key);
+    }
+    for (int i = node->size; i < M-1; i++) {
+        printf(" -");
+    }
+    printf(" |");
+}
+
+// If strict is false, then the position where the element should be will be 
+// returned, instead of -1 indicating it doesnt exist.
+size_t binarySearch(KeyValuePair* arr, Key val, size_t arrSize, int strict) {
+    size_t l = 0, r = arrSize - 1;
+    while (l <= r) {
+        size_t midIdx = l + ((r - l) / 2);
+
+        Key key = arr[midIdx].key;
+        if (key == val) {
+            return midIdx;
+        } else if (key < val) {
+            l = midIdx + 1;
+        } else {
+            r = midIdx - 1;
+        }
+    }
+    return strict ? -1 : l;
 }
