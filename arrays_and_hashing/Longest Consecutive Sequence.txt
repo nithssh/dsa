@@ -1,27 +1,18 @@
 class Solution {
 public:
     int longestConsecutive(vector<int>& nums) {
-        unordered_map<int, int> fq;
-        for (int n : nums) {
-            fq[n] += 1;
-        }
+        unordered_set<int> fq(nums.begin(), nums.end());
 
         int max = 0;
-        for (int i = 0; i <  nums.size(); i++) {
-            int n = nums[i];
-
-            if (fq.find(n-1) != fq.end()) {
-                continue; // not at start of seq
+        for (int n : fq) {
+            if (fq.find(n-1) == fq.end()) {
+                int cur = 0;
+                while (fq.find(n + cur) != fq.end()) {
+                    cur++;
+                }
+                max = std::max(max, cur);
             }
-            
-            int cur = 0;
-            while (fq.find(n + 1) != fq.end()) {
-                cur++;
-                n++;
-            }
-            max = std::max(max, cur + 1);    
         }
-
         return max;
     }
 };
