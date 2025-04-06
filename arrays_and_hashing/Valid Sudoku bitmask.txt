@@ -1,0 +1,41 @@
+class Solution {
+public:
+    bool isValidSudoku(vector<vector<char>>& board) {
+        vector<int> grids(9, 0);
+        vector<int> rows(9, 0);
+        vector<int> cols(9, 0);
+
+        for (int r = 0; r < 9; r++) {
+            for (int c = 0; c < 9; c++) {
+                char v = board[r][c];
+
+                if (v == '.') {
+                    continue;
+                }
+                v -= '1';
+
+                int gidx = gridIdx(r, c);
+                if (!setAndCheckDupe(rows[r], v) || !setAndCheckDupe(cols[c], v) || !setAndCheckDupe(grids[gidx], v)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    bool setAndCheckDupe(int& bvec, int val) {
+        int offset = val - 1;
+        if ((1<<offset & bvec) != 0) {
+            return false;
+        }
+
+        bvec |= 1<<offset;
+        return true;
+    }
+
+    int gridIdx(int row, int col) {
+        return ((row / 3) * 3) + (col / 3);
+    }
+};
+
